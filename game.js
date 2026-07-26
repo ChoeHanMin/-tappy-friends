@@ -1,5 +1,5 @@
 // ========================================================
-// Tappy Friends v3.7
+// Tappy Friends v4.5
 // 탭/클릭으로 점프하며 파이프를 피하는 캐주얼 게임
 // ========================================================
 
@@ -25,6 +25,13 @@ const EASY_MODE_DISTANCE  = 200;  // 이 거리(m)까지는 쉬운 외짝 파이
 const EASY_PIPE_HEIGHT_MIN = 55;  // 외짝 파이프 최소 길이
 const EASY_PIPE_HEIGHT_MAX = 120; // 외짝 파이프 최대 길이
 const EASY_PIPE_SPACING    = 275; // 이지모드 파이프 간격 (여유있게)
+
+// 스트릭 콤보 (도움 없이 연속으로 얼마나 잘 버텼는지에 따른 점수 배율)
+const STREAK_STEP = 15;       // 이 개수만큼 연속 통과할 때마다 배율 +1
+const MAX_STREAK_MULT = 4;    // 최대 배율
+
+// 체크포인트 (선택 난이도)
+const CHECKPOINT_INTERVAL = 200; // m 단위
 
 const GROUND_HEIGHT = 90;
 const CHAR_RADIUS   = 20;
@@ -89,6 +96,12 @@ const STORAGE_KEY_WINTER   = 'ttf_winterEnabled';
 const STORAGE_KEY_SEEN_HOWTO = 'ttf_seenHowto';
 const STORAGE_KEY_STATS    = 'ttf_overallStats';
 const STORAGE_KEY_LEADERBOARD = 'ttf_leaderboard';
+const STORAGE_KEY_CHECKPOINT_MODE = 'ttf_checkpointMode';
+const STORAGE_KEY_BGM_VOL = 'ttf_bgmVolume';
+const STORAGE_KEY_SFX_VOL = 'ttf_sfxVolume';
+const STORAGE_KEY_HIGH_CONTRAST = 'ttf_highContrast';
+const STORAGE_KEY_GHOST_BEST = 'ttf_ghostBest';
+const WEEKLY_DONE_PREFIX = 'ttf_weeklyDone_';
 const DAILY_DONE_PREFIX = 'ttf_dailyDone_';
 
 // 시작 카운트다운
@@ -151,6 +164,15 @@ const DAILY_TEMPLATES = [
   { text: '무적 콤보 3개 이상 만들기', check: (r) => r.maxCombo >= 3 }
 ];
 
+// ---------- 주간 챌린지 (일일보다 더 도전적인 목표) ----------
+const WEEKLY_TEMPLATES = [
+  { text: '한 판에서 300m 이상 날아가기', check: (r) => r.distance >= 300 },
+  { text: '한 판에서 점수 30점 넘기기', check: (r) => r.score >= 30 },
+  { text: '스트릭 배율 x3 달성하기', check: (r) => r.maxStreakMult >= 3 },
+  { text: '무적 콤보 6개 이상 만들기', check: (r) => r.maxCombo >= 6 },
+  { text: '한 판에서 아이템 6개 이상 먹기', check: (r) => r.itemsCollected >= 6 }
+];
+
 // ---------- 업적 정의 ----------
 const ACHIEVEMENTS = [
   { id: 'first_flight', icon: '🐣', title: '첫 비행', desc: '첫 게임을 플레이했어요',
@@ -187,6 +209,8 @@ const screenLeaderboard  = document.getElementById('screen-leaderboard');
 const screenCredits      = document.getElementById('screen-credits');
 const screenPaused       = document.getElementById('screen-paused');
 const screenChangelog    = document.getElementById('screen-changelog');
+const screenSettings     = document.getElementById('screen-settings');
+const screenStats        = document.getElementById('screen-stats');
 const screenOver         = document.getElementById('screen-over');
 const hud                = document.getElementById('hud');
 
@@ -195,24 +219,48 @@ const btnGotoHowto        = document.getElementById('btn-goto-howto');
 const btnGotoAchievements = document.getElementById('btn-goto-achievements');
 const btnGotoLeaderboard  = document.getElementById('btn-goto-leaderboard');
 const btnGotoCredits      = document.getElementById('btn-goto-credits');
+const btnGotoSettings     = document.getElementById('btn-goto-settings');
+const btnGotoStats        = document.getElementById('btn-goto-stats');
 const btnBackTitle1 = document.getElementById('btn-back-title-1');
 const btnBackTitle2 = document.getElementById('btn-back-title-2');
 const btnBackTitle3 = document.getElementById('btn-back-title-3');
 const btnBackTitle4 = document.getElementById('btn-back-title-4');
 const btnBackTitle5 = document.getElementById('btn-back-title-5');
 const btnBackTitle6 = document.getElementById('btn-back-title-6');
+const btnBackTitle7 = document.getElementById('btn-back-title-7');
+const btnBackTitle8 = document.getElementById('btn-back-title-8');
 const btnVersion = document.getElementById('btn-version');
 const btnStart      = document.getElementById('btn-start');
+const btnPracticeStart = document.getElementById('btn-practice-start');
+const btnPracticeExit  = document.getElementById('btn-practice-exit');
 const btnRetry      = document.getElementById('btn-retry');
 const btnChangeChar = document.getElementById('btn-change-char');
 const btnSaveImage  = document.getElementById('btn-save-image');
+const btnShareLink  = document.getElementById('btn-share-link');
+const shareLinkSavedEl = document.getElementById('share-link-saved');
+const btnContinueCheckpoint = document.getElementById('btn-continue-checkpoint');
 const btnWinterToggle = document.getElementById('btn-winter-toggle');
+const btnCheckpointToggle = document.getElementById('btn-checkpoint-toggle');
+const btnHighContrastToggle = document.getElementById('btn-high-contrast-toggle');
 const btnMute  = document.getElementById('btn-mute');
 const btnPause = document.getElementById('btn-pause');
 const btnResume    = document.getElementById('btn-resume');
 const btnQuitTitle = document.getElementById('btn-quit-title');
 const cardLeo = document.getElementById('card-leo');
 const leoDescEl = document.getElementById('leo-desc');
+const friendCardEl     = document.getElementById('friend-card');
+const friendCardTextEl = document.getElementById('friend-card-text');
+const bgmVolumeSlider  = document.getElementById('bgm-volume-slider');
+const sfxVolumeSlider  = document.getElementById('sfx-volume-slider');
+const bgmVolumeValueEl = document.getElementById('bgm-volume-value');
+const sfxVolumeValueEl = document.getElementById('sfx-volume-value');
+const streakBadgeEl    = document.getElementById('streak-badge');
+const btnExportData  = document.getElementById('btn-export-data');
+const btnImportData  = document.getElementById('btn-import-data');
+const importFileInput = document.getElementById('import-file-input');
+const backupStatusEl  = document.getElementById('backup-status');
+const statsListEl     = document.getElementById('stats-list');
+const newRecordQuoteEl = document.getElementById('new-record-quote');
 
 const scoreEl         = document.getElementById('score');
 const distanceEl      = document.getElementById('distance');
@@ -224,6 +272,7 @@ const finalDistanceEl = document.getElementById('final-distance');
 const bestDistanceEl  = document.getElementById('best-distance');
 const finalComboEl    = document.getElementById('final-combo');
 const bestComboEl     = document.getElementById('best-combo');
+const finalStreakEl   = document.getElementById('final-streak');
 const newAchievementsEl = document.getElementById('new-achievements');
 const dailyResultEl     = document.getElementById('daily-result');
 const newRecordBadgeEl  = document.getElementById('new-record-badge');
@@ -236,6 +285,8 @@ const titleBestLabel  = document.getElementById('title-best-label');
 
 const dailyTextEl   = document.getElementById('daily-text');
 const dailyStatusEl = document.getElementById('daily-status');
+const weeklyTextEl   = document.getElementById('weekly-text');
+const weeklyStatusEl = document.getElementById('weekly-status');
 const achievementsListEl = document.getElementById('achievements-list');
 const leaderboardListEl  = document.getElementById('leaderboard-list');
 
@@ -281,6 +332,33 @@ let itemsCollectedRun = 0;
 let usedInvincibleRun = false;
 let dailyCompletedThisRun = false;
 
+let normalComboStreak = 0;
+let runMaxStreakMult = 1;
+
+let checkpointModeEnabled = localStorage.getItem(STORAGE_KEY_CHECKPOINT_MODE) === '1';
+let lastCheckpointDistance = 0;
+let usedCheckpointContinue = false;
+
+let friendChallenge = null; // { score, distance, char } 또는 null
+let beatFriendChallengeThisRun = false;
+
+let tutorialHintActive = false;
+
+let bgmVolume = Number(localStorage.getItem(STORAGE_KEY_BGM_VOL) || 70) / 100;
+let sfxVolume = Number(localStorage.getItem(STORAGE_KEY_SFX_VOL) || 100) / 100;
+
+let highContrastEnabled = localStorage.getItem(STORAGE_KEY_HIGH_CONTRAST) === '1';
+let practiceMode = false;
+let weeklyCompletedThisRun = false;
+
+const GHOST_SAMPLE_EVERY = 2;   // 이 프레임마다 한 번씩 기록/재생 (용량 절약)
+const GHOST_MAX_SAMPLES = 4000;
+let ghostRecording = [];
+let ghostPlayback = null;
+let ghostIndex = 0;
+let ghostSampleCounter = 0;
+let newRecordThisRun = false;
+
 let shakeIntensity = 0;
 let dyingTimer = 0;
 
@@ -305,15 +383,44 @@ function loadStats() {
       return {
         gamesPlayed: raw.gamesPlayed || 0,
         playedChars: raw.playedChars || [],
-        unlockedAchievements: raw.unlockedAchievements || []
+        unlockedAchievements: raw.unlockedAchievements || [],
+        totalDistance: raw.totalDistance || 0,
+        charPlayCounts: raw.charPlayCounts || {}
       };
     }
   } catch (e) { /* ignore */ }
-  return { gamesPlayed: 0, playedChars: [], unlockedAchievements: [] };
+  return { gamesPlayed: 0, playedChars: [], unlockedAchievements: [], totalDistance: 0, charPlayCounts: {} };
 }
 
 function saveStats(stats) {
   localStorage.setItem(STORAGE_KEY_STATS, JSON.stringify(stats));
+}
+
+function renderStatsList() {
+  const overall = loadStats();
+  let mostPlayed = '-';
+  let mostPlayedCount = 0;
+  Object.entries(overall.charPlayCounts).forEach(([char, count]) => {
+    if (count > mostPlayedCount) {
+      mostPlayedCount = count;
+      mostPlayed = (CHARACTERS[char] && CHARACTERS[char].name) || char;
+    }
+  });
+  const achvTotal = ACHIEVEMENTS.length;
+  const achvDone = overall.unlockedAchievements.length;
+
+  const rows = [
+    ['🎮 총 플레이 횟수', `${overall.gamesPlayed}판`],
+    ['📏 누적 이동 거리', `${overall.totalDistance}m`],
+    ['🐾 가장 많이 쓴 캐릭터', mostPlayedCount > 0 ? `${mostPlayed} (${mostPlayedCount}판)` : '-'],
+    ['🏆 달성한 업적', `${achvDone} / ${achvTotal}`],
+    ['🥇 최고 점수', `${bestScore}`],
+    ['🚀 최고 거리', `${bestDistance}m`]
+  ];
+
+  statsListEl.innerHTML = rows.map(([label, value]) =>
+    `<div class="stats-row"><span class="stats-row-label">${label}</span><span class="stats-row-value">${value}</span></div>`
+  ).join('');
 }
 
 function loadLeaderboard() {
@@ -374,6 +481,28 @@ function getDailyChallenge() {
   return DAILY_TEMPLATES[dayOfYear % DAILY_TEMPLATES.length];
 }
 
+function weekKey() {
+  const d = new Date();
+  const start = new Date(d.getFullYear(), 0, 1);
+  const weekNum = Math.ceil(((d - start) / 86400000 + start.getDay() + 1) / 7);
+  return `${d.getFullYear()}-W${weekNum}`;
+}
+
+function isWeeklyDoneThisWeek() {
+  return localStorage.getItem(WEEKLY_DONE_PREFIX + weekKey()) === '1';
+}
+
+function markWeeklyDone() {
+  localStorage.setItem(WEEKLY_DONE_PREFIX + weekKey(), '1');
+}
+
+function getWeeklyChallenge() {
+  const d = new Date();
+  const start = new Date(d.getFullYear(), 0, 1);
+  const weekNum = Math.floor((d - start) / (7 * 86400000));
+  return WEEKLY_TEMPLATES[weekNum % WEEKLY_TEMPLATES.length];
+}
+
 function updateTitleBestLabel() {
   if (bestScore > 0 || bestDistance > 0) {
     let text = `최고 점수 ${bestScore} · 최고 거리 ${bestDistance}m`;
@@ -418,6 +547,12 @@ function updateDailyCardUI() {
   dailyStatusEl.textContent = isDailyDoneToday() ? '✅ 완료!' : '🔥 도전 중';
 }
 
+function updateWeeklyCardUI() {
+  const challenge = getWeeklyChallenge();
+  weeklyTextEl.textContent = challenge.text;
+  weeklyStatusEl.textContent = isWeeklyDoneThisWeek() ? '✅ 완료!' : '💪 도전 중';
+}
+
 function updateLeoLockUI() {
   if (isLeoUnlocked()) {
     cardLeo.classList.remove('locked');
@@ -439,6 +574,31 @@ function updateWinterButtonUI() {
 
 function updateMuteButton() {
   btnMute.textContent = muted ? '🔇' : '🔊';
+}
+
+function updateCheckpointButtonUI() {
+  btnCheckpointToggle.textContent = `🚩 체크포인트 모드: ${checkpointModeEnabled ? 'ON' : 'OFF'}`;
+}
+
+function updateHighContrastButtonUI() {
+  btnHighContrastToggle.textContent = `👁️ 고대비 모드: ${highContrastEnabled ? 'ON' : 'OFF'}`;
+}
+
+function updateFriendCardUI() {
+  if (!friendChallenge) {
+    friendCardEl.classList.add('hidden');
+    return;
+  }
+  const charName = (CHARACTERS[friendChallenge.char] && CHARACTERS[friendChallenge.char].name) || friendChallenge.char;
+  friendCardEl.classList.remove('hidden');
+  friendCardTextEl.textContent = `${charName}님의 기록: 점수 ${friendChallenge.score} · ${friendChallenge.distance}m — 이거 이겨보세요! 🏅`;
+}
+
+function updateVolumeSliders() {
+  bgmVolumeSlider.value = Math.round(bgmVolume * 100);
+  sfxVolumeSlider.value = Math.round(sfxVolume * 100);
+  bgmVolumeValueEl.textContent = `${Math.round(bgmVolume * 100)}%`;
+  sfxVolumeValueEl.textContent = `${Math.round(sfxVolume * 100)}%`;
 }
 
 // ========================================================
@@ -463,14 +623,16 @@ function resumeAudioCtx() {
   if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume().catch(() => {});
 }
 
-function beep(freq, dur, type = 'sine', vol = 0.18, delay = 0) {
+function beep(freq, dur, type = 'sine', vol = 0.18, delay = 0, channel = 'sfx') {
   if (muted || !audioCtx) return;
+  const channelVol = channel === 'bgm' ? bgmVolume : sfxVolume;
+  if (channelVol <= 0) return;
   const t0 = audioCtx.currentTime + delay;
   const osc = audioCtx.createOscillator();
   const gain = audioCtx.createGain();
   osc.type = type;
   osc.frequency.setValueAtTime(freq, t0);
-  gain.gain.setValueAtTime(vol, t0);
+  gain.gain.setValueAtTime(vol * channelVol, t0);
   gain.gain.exponentialRampToValueAtTime(0.001, t0 + dur);
   osc.connect(gain).connect(audioCtx.destination);
   osc.start(t0);
@@ -500,6 +662,13 @@ function playItem(type) {
 function playShieldBreak() {
   beep(300, 0.1, 'square', 0.16);
   beep(180, 0.16, 'square', 0.14, 0.05);
+}
+
+function playFanfare() {
+  beep(523, 0.1, 'square', 0.15);
+  beep(659, 0.1, 'square', 0.15, 0.1);
+  beep(784, 0.1, 'square', 0.15, 0.2);
+  beep(1046, 0.25, 'square', 0.18, 0.3);
 }
 
 function playRevive() {
@@ -533,8 +702,8 @@ function startBgm() {
     resumeAudioCtx();
     const lead = BGM_LEAD[bgmStep % BGM_LEAD.length];
     const bass = BGM_BASS[bgmStep % BGM_BASS.length];
-    beep(lead, 0.15, 'triangle', 0.1);
-    if (bgmStep % 2 === 0) beep(bass, 0.28, 'sine', 0.08);
+    beep(lead, 0.15, 'triangle', 0.1, 0, 'bgm');
+    if (bgmStep % 2 === 0) beep(bass, 0.28, 'sine', 0.08, 0, 'bgm');
     bgmStep++;
   }, BGM_STEP_MS);
 }
@@ -763,6 +932,15 @@ const JUMP_TALK = {
   charles: ['찍!', '찌직!', '흐냐!'],
   mary: ['찌익!', '뿌잉!', '두둥!'],
   leo: ['그르릉!', '어흥!', '가아앙!']
+};
+
+// 캐릭터별 신기록 세웠을 때 대사
+const RECORD_TALK = {
+  hanmin: ['오늘 컨디션 좋네!', '수달력 만렙!', '이 정도쯤이야~'],
+  henry: ['멍멍! 최고 기록!', '나 잘하지?!', '주인님 칭찬해줘!'],
+  charles: ['흐냐! 신기록이다!', '역시 질주형!', '찍! 못 따라와!'],
+  mary: ['뿌잉! 신기록!', '포근하게 1등!', '두둥! 이겼다!'],
+  leo: ['어흥! 왕의 귀환!', '역시 전설이지', '그르릉... 만족스럽군']
 };
 
 function spawnJumpPopup() {
@@ -1051,6 +1229,12 @@ function drawPipeSegment(x, y, w, h, isTop) {
     ctx.fillStyle = cCapTop;
     ctx.fillRect(x - 4, y + capH - 6, w + 8, 6);
   }
+
+  if (highContrastEnabled) {
+    ctx.strokeStyle = '#12261a';
+    ctx.lineWidth = 3;
+    ctx.strokeRect(x - 4, y, w + 8, h);
+  }
 }
 
 function drawItems() {
@@ -1266,6 +1450,8 @@ function showScreen(name) {
   screenCredits.classList.toggle('hidden', name !== 'credits');
   screenPaused.classList.toggle('hidden', name !== 'paused');
   screenChangelog.classList.toggle('hidden', name !== 'changelog');
+  screenSettings.classList.toggle('hidden', name !== 'settings');
+  screenStats.classList.toggle('hidden', name !== 'stats');
   screenOver.classList.toggle('hidden', name !== 'gameover');
   hud.classList.toggle('hidden', name !== 'playing');
 }
@@ -1275,7 +1461,11 @@ function goToTitle() {
   stopBgm();
   updateTitleBestLabel();
   updateDailyCardUI();
+  updateWeeklyCardUI();
   updateWinterButtonUI();
+  updateCheckpointButtonUI();
+  updateHighContrastButtonUI();
+  updateFriendCardUI();
   startQuoteRotation();
   showScreen('title');
 }
@@ -1319,14 +1509,35 @@ function goToChangelog() {
   showScreen('changelog');
 }
 
-function goToCountdown() {
-  state = 'countdown';
+function goToSettings() {
+  state = 'settings';
   stopQuoteRotation();
+  updateVolumeSliders();
+  showScreen('settings');
+}
+
+function goToStats() {
+  state = 'stats';
+  stopQuoteRotation();
+  renderStatsList();
+  showScreen('stats');
+}
+
+function resetRunState(keepProgress) {
   player.y = LOGICAL_H / 2;
   player.vy = 0;
   player.rot = 0;
-  score = 0;
-  distanceM = 0;
+
+  if (!keepProgress) {
+    score = 0;
+    distanceM = 0;
+    normalComboStreak = 0;
+    runMaxStreakMult = 1;
+    lastCheckpointDistance = 0;
+    usedCheckpointContinue = false;
+    beatFriendChallengeThisRun = false;
+  }
+
   speed = BASE_SPEED * (CHARACTERS[selectedChar].speedMult || 1);
   speedTimer = 0;
   invincibleTimer = 0;
@@ -1344,18 +1555,56 @@ function goToCountdown() {
   itemsCollectedRun = 0;
   usedInvincibleRun = false;
   dailyCompletedThisRun = false;
+  weeklyCompletedThisRun = false;
+  newRecordThisRun = false;
   particles = [];
   popups = [];
   shakeIntensity = 0;
+  tutorialHintActive = !keepProgress && isEasyPhase();
   resetPipes();
   countdownIndex = 0;
   countdownFrameLeft = COUNTDOWN_SEQUENCE[0].frames;
   showScreen('playing');
-  scoreEl.textContent = '0';
-  distanceEl.textContent = '0 m';
+  scoreEl.textContent = String(score);
+  distanceEl.textContent = `${Math.floor(distanceM)} m`;
   effectsStatusEl.innerHTML = '';
   ensureAudioCtx();
   resumeAudioCtx();
+
+  // 고스트 리플레이: 이번 판 기록 시작 + 저장된 최고기록 고스트 불러오기
+  ghostRecording = [];
+  ghostSampleCounter = 0;
+  ghostIndex = 0;
+  try {
+    const saved = JSON.parse(localStorage.getItem(STORAGE_KEY_GHOST_BEST));
+    ghostPlayback = Array.isArray(saved) && saved.length > 0 ? saved : null;
+  } catch (e) {
+    ghostPlayback = null;
+  }
+}
+
+function goToCountdown() {
+  state = 'countdown';
+  stopQuoteRotation();
+  practiceMode = false;
+  btnPracticeExit.classList.add('hidden');
+  resetRunState(false);
+}
+
+function continueFromCheckpoint() {
+  state = 'countdown';
+  stopQuoteRotation();
+  distanceM = lastCheckpointDistance;
+  usedCheckpointContinue = true;
+  resetRunState(true);
+}
+
+function startPractice() {
+  state = 'countdown';
+  stopQuoteRotation();
+  practiceMode = true;
+  btnPracticeExit.classList.remove('hidden');
+  resetRunState(false);
 }
 
 function startPlaying() {
@@ -1379,6 +1628,7 @@ function beginDying() {
 function bounceOffShield() {
   player.vy = JUMP_VELOCITY * 0.7;
   invincibleTimer = Math.max(invincibleTimer, 15);
+  normalComboStreak = 0;
   spawnParticles(player.x, player.y, '#9fd6ff', 16);
   playShieldBreak();
   vibrate(60);
@@ -1388,6 +1638,7 @@ function reviveWithHeart() {
   player.y = Math.max(60, player.y - 24);
   player.vy = -6;
   invincibleTimer = Math.max(invincibleTimer, 90);
+  normalComboStreak = 0;
   spawnParticles(player.x, player.y, '#ff6b81', 20);
   playRevive();
   vibrate([40, 40, 40]);
@@ -1406,11 +1657,15 @@ function gameOver() {
 
   const overall = loadStats();
   overall.gamesPlayed++;
+  overall.totalDistance = (overall.totalDistance || 0) + distFloor;
+  overall.charPlayCounts = overall.charPlayCounts || {};
+  overall.charPlayCounts[selectedChar] = (overall.charPlayCounts[selectedChar] || 0) + 1;
   if (!overall.playedChars.includes(selectedChar)) overall.playedChars.push(selectedChar);
 
   const runStats = {
     score, distance: distFloor, itemsCollected: itemsCollectedRun,
     maxCombo: runMaxCombo, usedInvincible: usedInvincibleRun,
+    maxStreakMult: runMaxStreakMult,
     char: selectedChar, dailyCompletedThisRun: false
   };
 
@@ -1419,6 +1674,12 @@ function gameOver() {
     markDailyDone();
     dailyCompletedThisRun = true;
     runStats.dailyCompletedThisRun = true;
+  }
+
+  const weeklyChallenge = getWeeklyChallenge();
+  if (!isWeeklyDoneThisWeek() && weeklyChallenge.check(runStats)) {
+    markWeeklyDone();
+    weeklyCompletedThisRun = true;
   }
 
   const newlyUnlocked = [];
@@ -1444,16 +1705,39 @@ function gameOver() {
   bestDistanceEl.textContent = bestDistance;
   finalComboEl.textContent = runMaxCombo;
   bestComboEl.textContent = bestCombo;
+  finalStreakEl.textContent = `x${runMaxStreakMult}`;
+
+  newRecordThisRun = (score > 0 && score > prevBestScore) || (distFloor > 0 && distFloor > prevBestDistance);
 
   const recordMsgs = [];
   if (score > 0 && score > prevBestScore) recordMsgs.push('🎉 점수 신기록!');
   if (distFloor > 0 && distFloor > prevBestDistance) recordMsgs.push('🎉 거리 신기록!');
   newRecordBadgeEl.innerHTML = recordMsgs.map(m => `<div class="record-badge">${m}</div>`).join('');
 
+  if (newRecordThisRun) {
+    playFanfare();
+    spawnParticles(LOGICAL_W / 2, LOGICAL_H / 2, '#ffd873', 24);
+    spawnParticles(LOGICAL_W / 2, LOGICAL_H / 2, '#ff8a65', 16);
+    const quotes = RECORD_TALK[selectedChar] || ['신기록!'];
+    const quote = quotes[Math.floor(Math.random() * quotes.length)];
+    newRecordQuoteEl.textContent = `${CHARACTERS[selectedChar].name}: "${quote}"`;
+    newRecordQuoteEl.classList.remove('hidden');
+
+    // 신기록 달성 시 이번 판의 고스트를 저장 (다음 판부터 재생됨)
+    if (ghostRecording.length > 0) {
+      localStorage.setItem(STORAGE_KEY_GHOST_BEST, JSON.stringify(ghostRecording));
+    }
+  } else {
+    newRecordQuoteEl.classList.add('hidden');
+  }
+
   newAchievementsEl.innerHTML = newlyUnlocked
     .map(a => `<div class="new-achv-badge">🏆 ${a.icon} ${a.title} 달성!</div>`).join('');
   dailyResultEl.innerHTML = dailyCompletedThisRun
     ? `<div class="daily-result-badge">📅 오늘의 미션 클리어! 🎉</div>` : '';
+  if (weeklyCompletedThisRun) {
+    dailyResultEl.innerHTML += `<div class="daily-result-badge">🗓️ 주간 챌린지 클리어! 🎉</div>`;
+  }
 
   if (rank > -1 && rank < 5) {
     currentNameEntryId = entryId;
@@ -1463,6 +1747,15 @@ function gameOver() {
   } else {
     currentNameEntryId = null;
     nameEntryEl.classList.add('hidden');
+  }
+
+  shareLinkSavedEl.classList.add('hidden');
+
+  if (checkpointModeEnabled && lastCheckpointDistance > 0) {
+    btnContinueCheckpoint.classList.remove('hidden');
+    btnContinueCheckpoint.textContent = `🚩 ${lastCheckpointDistance}m 체크포인트에서 이어하기`;
+  } else {
+    btnContinueCheckpoint.classList.add('hidden');
   }
 
   showScreen('gameover');
@@ -1523,6 +1816,9 @@ function update() {
     distanceM += currentSpeed / PIXELS_PER_METER;
     groundOffset -= currentSpeed;
 
+    const checkpointLevel = Math.floor(distanceM / CHECKPOINT_INTERVAL) * CHECKPOINT_INTERVAL;
+    if (checkpointLevel > lastCheckpointDistance) lastCheckpointDistance = checkpointLevel;
+
     if (balloonTimer > 0) {
       const nextPipe = pipes.find(p => p.x + PIPE_WIDTH > player.x);
       const targetY = nextPipe ? (nextPipe.topHeight + nextPipe.gap / 2) : player.y;
@@ -1570,7 +1866,10 @@ function update() {
     pipes.forEach(p => {
       if (!p.passed && p.x + PIPE_WIDTH < player.x - CHAR_RADIUS) {
         p.passed = true;
-        score += starTimer > 0 ? 2 : 1;
+        normalComboStreak++;
+        const streakMult = Math.min(MAX_STREAK_MULT, 1 + Math.floor(normalComboStreak / STREAK_STEP));
+        runMaxStreakMult = Math.max(runMaxStreakMult, streakMult);
+        score += streakMult * (starTimer > 0 ? 2 : 1);
         scoreEl.textContent = score;
         speed = Math.min(BASE_SPEED * (stats.speedMult || 1) + score * 0.06, 5.6);
         playScorePoint();
@@ -1581,26 +1880,48 @@ function update() {
           comboCurrent = 0;
         }
         runMaxCombo = Math.max(runMaxCombo, comboCurrent);
+
+        if (friendChallenge && !beatFriendChallengeThisRun && score > friendChallenge.score) {
+          beatFriendChallengeThisRun = true;
+          popups.push({ text: '친구 기록 돌파! 🎉', x: player.x, y: player.y - CHAR_RADIUS - 30, life: 70, maxLife: 70 });
+          playRevive();
+        }
       }
     });
+
+    streakBadgeEl.textContent = runMaxStreakMult > 1 || Math.min(MAX_STREAK_MULT, 1 + Math.floor(normalComboStreak / STREAK_STEP)) > 1
+      ? `🔥 x${Math.min(MAX_STREAK_MULT, 1 + Math.floor(normalComboStreak / STREAK_STEP))}`
+      : '';
 
     checkItemCollisions();
     updateEffectsHud();
     distanceEl.textContent = `${Math.floor(distanceM)} m`;
     updatePopups();
 
-    const hitGroundOrCeiling = checkGroundCeilingCollision();
-    const hitPipe = invincibleTimer > 0 ? false : checkPipeCollision();
+    // 고스트 리플레이: 이번 판 기록 + 저장된 고스트 재생 진행
+    ghostSampleCounter++;
+    if (ghostSampleCounter >= GHOST_SAMPLE_EVERY) {
+      ghostSampleCounter = 0;
+      if (ghostRecording.length < GHOST_MAX_SAMPLES) ghostRecording.push(Math.round(player.y));
+      if (ghostPlayback) ghostIndex++;
+    }
 
-    if (hitGroundOrCeiling || hitPipe) {
-      if (heartTimer > 0) {
-        heartTimer = 0;
-        reviveWithHeart();
-      } else if (hitPipe && !hitGroundOrCeiling && shieldTimer > 0) {
-        shieldTimer = 0;
-        bounceOffShield();
-      } else {
-        beginDying();
+    if (practiceMode) {
+      // 연습 모드: 충돌해도 죽지 않음 (조작감만 익히는 용도)
+    } else {
+      const hitGroundOrCeiling = checkGroundCeilingCollision();
+      const hitPipe = invincibleTimer > 0 ? false : checkPipeCollision();
+
+      if (hitGroundOrCeiling || hitPipe) {
+        if (heartTimer > 0) {
+          heartTimer = 0;
+          reviveWithHeart();
+        } else if (hitPipe && !hitGroundOrCeiling && shieldTimer > 0) {
+          shieldTimer = 0;
+          bounceOffShield();
+        } else {
+          beginDying();
+        }
       }
     }
   } else if (state === 'dying') {
@@ -1739,6 +2060,32 @@ function drawGameOverOverlay() {
   ctx.restore();
 }
 
+function drawTutorialHint() {
+  const pulse = 1 + Math.sin(frame * 0.15) * 0.08;
+  ctx.save();
+  ctx.globalAlpha = 0.95;
+  ctx.translate(player.x, player.y - CHAR_RADIUS - 46);
+  ctx.scale(pulse, pulse);
+  ctx.font = "bold 15px 'Gaegu', sans-serif";
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.lineWidth = 4;
+  ctx.strokeStyle = '#fff';
+  ctx.fillStyle = '#2b3a4a';
+  ctx.strokeText('👆 탭해서 점프!', 0, 0);
+  ctx.fillText('👆 탭해서 점프!', 0, 0);
+  ctx.restore();
+}
+
+function drawGhost() {
+  if (!ghostPlayback || ghostIndex >= ghostPlayback.length) return;
+  const ghostY = ghostPlayback[ghostIndex];
+  ctx.save();
+  ctx.globalAlpha = 0.35;
+  drawCharacter(ctx, selectedChar, player.x, ghostY, CHAR_RADIUS, 0, 0);
+  ctx.restore();
+}
+
 function render() {
   ctx.save();
 
@@ -1759,6 +2106,10 @@ function render() {
 
   drawGround();
 
+  if (state === 'playing') {
+    drawGhost();
+  }
+
   if (showWorld) {
     drawEffectAura();
     const bob = (state === 'countdown') ? 0 : Math.sin(frame * 0.25) * 3;
@@ -1767,6 +2118,10 @@ function render() {
     drawEffectIcons();
     drawParticles();
     drawPopups();
+  }
+
+  if (state === 'playing' && tutorialHintActive) {
+    drawTutorialHint();
   }
 
   if (state === 'countdown') {
@@ -1872,6 +2227,8 @@ btnGotoHowto.addEventListener('click', goToHowto);
 btnGotoAchievements.addEventListener('click', goToAchievements);
 btnGotoLeaderboard.addEventListener('click', goToLeaderboard);
 btnGotoCredits.addEventListener('click', goToCredits);
+btnGotoSettings.addEventListener('click', goToSettings);
+btnGotoStats.addEventListener('click', goToStats);
 btnBackTitle1.addEventListener('click', goToTitle);
 btnBackTitle2.addEventListener('click', () => {
   goToTitle();
@@ -1881,6 +2238,8 @@ btnBackTitle3.addEventListener('click', goToTitle);
 btnBackTitle4.addEventListener('click', goToTitle);
 btnBackTitle5.addEventListener('click', goToTitle);
 btnBackTitle6.addEventListener('click', goToTitle);
+btnBackTitle7.addEventListener('click', goToTitle);
+btnBackTitle8.addEventListener('click', goToTitle);
 btnVersion.addEventListener('click', goToChangelog);
 
 document.querySelectorAll('.char-card').forEach(card => {
@@ -1891,12 +2250,24 @@ document.querySelectorAll('.char-card').forEach(card => {
     selectedChar = card.dataset.char;
     btnStart.disabled = false;
     btnStart.textContent = `${CHARACTERS[selectedChar].name}(으)로 시작하기`;
+    btnPracticeStart.disabled = false;
   });
 });
 
 btnStart.addEventListener('click', () => {
   if (!selectedChar) return;
   goToCountdown();
+});
+
+btnPracticeStart.addEventListener('click', () => {
+  if (!selectedChar) return;
+  startPractice();
+});
+
+btnPracticeExit.addEventListener('click', () => {
+  practiceMode = false;
+  btnPracticeExit.classList.add('hidden');
+  goToTitle();
 });
 
 btnRetry.addEventListener('click', () => {
@@ -1930,6 +2301,127 @@ btnWinterToggle.addEventListener('click', () => {
   updateWinterButtonUI();
 });
 
+btnHighContrastToggle.addEventListener('click', () => {
+  highContrastEnabled = !highContrastEnabled;
+  localStorage.setItem(STORAGE_KEY_HIGH_CONTRAST, highContrastEnabled ? '1' : '0');
+  updateHighContrastButtonUI();
+});
+
+btnCheckpointToggle.addEventListener('click', () => {
+  checkpointModeEnabled = !checkpointModeEnabled;
+  localStorage.setItem(STORAGE_KEY_CHECKPOINT_MODE, checkpointModeEnabled ? '1' : '0');
+  updateCheckpointButtonUI();
+});
+
+btnContinueCheckpoint.addEventListener('click', () => {
+  continueFromCheckpoint();
+});
+
+btnShareLink.addEventListener('click', () => {
+  const url = new URL(location.href);
+  url.search = '';
+  url.searchParams.set('score', String(score));
+  url.searchParams.set('distance', String(Math.floor(distanceM)));
+  url.searchParams.set('char', selectedChar);
+  const shareUrl = url.toString();
+
+  const showSaved = () => {
+    shareLinkSavedEl.classList.remove('hidden');
+    setTimeout(() => shareLinkSavedEl.classList.add('hidden'), 2500);
+  };
+
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(shareUrl).then(showSaved).catch(() => {
+      fallbackCopyText(shareUrl);
+      showSaved();
+    });
+  } else {
+    fallbackCopyText(shareUrl);
+    showSaved();
+  }
+});
+
+function fallbackCopyText(text) {
+  const ta = document.createElement('textarea');
+  ta.value = text;
+  ta.style.position = 'fixed';
+  ta.style.opacity = '0';
+  document.body.appendChild(ta);
+  ta.select();
+  try { document.execCommand('copy'); } catch (e) { /* ignore */ }
+  document.body.removeChild(ta);
+}
+
+bgmVolumeSlider.addEventListener('input', () => {
+  bgmVolume = Number(bgmVolumeSlider.value) / 100;
+  localStorage.setItem(STORAGE_KEY_BGM_VOL, bgmVolumeSlider.value);
+  bgmVolumeValueEl.textContent = `${bgmVolumeSlider.value}%`;
+});
+
+sfxVolumeSlider.addEventListener('input', () => {
+  sfxVolume = Number(sfxVolumeSlider.value) / 100;
+  localStorage.setItem(STORAGE_KEY_SFX_VOL, sfxVolumeSlider.value);
+  sfxVolumeValueEl.textContent = `${sfxVolumeSlider.value}%`;
+  beep(700, 0.08, 'square', 0.15); // 슬라이더 조정 중 바로 들어볼 수 있게 미리듣기
+});
+
+// ========================================================
+// 진행상황 백업 / 복원
+// ========================================================
+function getAllGameStorageKeys() {
+  const keys = [];
+  for (let i = 0; i < localStorage.length; i++) {
+    const k = localStorage.key(i);
+    if (k && (k.indexOf('ttf_') === 0 || k.indexOf('tapTapFriends_') === 0)) keys.push(k);
+  }
+  return keys;
+}
+
+function showBackupStatus(text) {
+  backupStatusEl.textContent = text;
+  backupStatusEl.classList.remove('hidden');
+  setTimeout(() => backupStatusEl.classList.add('hidden'), 3000);
+}
+
+btnExportData.addEventListener('click', () => {
+  const data = {};
+  getAllGameStorageKeys().forEach((k) => { data[k] = localStorage.getItem(k); });
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = `tappy-friends-backup-${new Date().toISOString().slice(0, 10)}.json`;
+  link.click();
+  URL.revokeObjectURL(url);
+  showBackupStatus('백업 파일을 저장했어요!');
+});
+
+btnImportData.addEventListener('click', () => {
+  importFileInput.click();
+});
+
+importFileInput.addEventListener('change', () => {
+  const file = importFileInput.files && importFileInput.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = () => {
+    try {
+      const data = JSON.parse(reader.result);
+      Object.keys(data).forEach((k) => {
+        if (k.indexOf('ttf_') === 0 || k.indexOf('tapTapFriends_') === 0) {
+          localStorage.setItem(k, data[k]);
+        }
+      });
+      showBackupStatus('복원 완료! 새로고침할게요...');
+      setTimeout(() => location.reload(), 1200);
+    } catch (e) {
+      showBackupStatus('올바른 백업 파일이 아니에요 ㅠㅠ');
+    }
+  };
+  reader.readAsText(file);
+  importFileInput.value = '';
+});
+
 btnMute.addEventListener('click', () => {
   muted = !muted;
   localStorage.setItem(STORAGE_KEY_MUTED, muted ? '1' : '0');
@@ -1961,8 +2453,10 @@ function onPressEdge() {
     player.vy = JUMP_VELOCITY * (CHARACTERS[selectedChar].jumpMult || 1);
     playJump();
     spawnJumpPopup();
+    tutorialHintActive = false;
   } else if (state === 'playing') {
     playJump();
+    tutorialHintActive = false;
   }
 }
 
@@ -2006,6 +2500,21 @@ if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('sw.js').catch(() => { /* 오프라인 캐싱 실패해도 게임엔 지장 없음 */ });
   });
 }
+
+// ========================================================
+// 친구가 공유한 링크에 점수/거리/캐릭터가 담겨있으면 도전장으로 표시
+// ========================================================
+(function parseFriendChallenge() {
+  try {
+    const params = new URLSearchParams(location.search);
+    const fScore = parseInt(params.get('score'), 10);
+    const fDistance = parseInt(params.get('distance'), 10);
+    const fChar = params.get('char');
+    if (!isNaN(fScore) && !isNaN(fDistance) && fChar && CHARACTERS[fChar]) {
+      friendChallenge = { score: fScore, distance: fDistance, char: fChar };
+    }
+  } catch (e) { /* URL 파싱 실패 시 그냥 무시 */ }
+})();
 
 // ========================================================
 // 초기 화면 (첫 실행이면 플레이 방법을 먼저 보여줌)

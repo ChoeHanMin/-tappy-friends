@@ -29,8 +29,9 @@
 
     <canvas id="game-canvas" width="360" height="640"></canvas>
 
-    <!-- 상단 고정 컨트롤 (음소거 / 일시정지) -->
+    <!-- 상단 고정 컨트롤 (음소거 / 일시정지 / 연습모드 종료) -->
     <div id="top-controls">
+      <button id="btn-practice-exit" class="icon-btn hidden" title="연습 모드 종료">🎯</button>
       <button id="btn-mute" class="icon-btn" title="소리 켜기/끄기">🔊</button>
       <button id="btn-pause" class="icon-btn hidden" title="일시정지">⏸️</button>
     </div>
@@ -41,10 +42,20 @@
       <p class="subtitle">탭 한 번, 파이프 하나, 그리고 생존</p>
       <p class="author-quote" id="author-quote"></p>
 
+      <div id="friend-card" class="hidden">
+        <span id="friend-card-text"></span>
+      </div>
+
       <div id="daily-card">
         <span id="daily-label">오늘의 미션</span>
         <span id="daily-text"></span>
         <span id="daily-status"></span>
+      </div>
+
+      <div id="weekly-card">
+        <span id="weekly-label">이번 주 챌린지</span>
+        <span id="weekly-text"></span>
+        <span id="weekly-status"></span>
       </div>
 
       <div id="title-menu">
@@ -53,14 +64,18 @@
           <button id="btn-goto-howto" class="btn-secondary">플레이 방법</button>
           <button id="btn-goto-achievements" class="btn-secondary">업적</button>
           <button id="btn-goto-leaderboard" class="btn-secondary">랭킹</button>
+          <button id="btn-goto-stats" class="btn-secondary">통계</button>
           <button id="btn-goto-credits" class="btn-secondary">제작자</button>
+          <button id="btn-goto-settings" class="btn-secondary">설정</button>
         </div>
       </div>
 
       <button id="btn-winter-toggle" class="btn-tertiary hidden">❄️ 겨울 테마: OFF</button>
+      <button id="btn-checkpoint-toggle" class="btn-tertiary">🚩 체크포인트 모드: OFF</button>
+      <button id="btn-high-contrast-toggle" class="btn-tertiary">👁️ 고대비 모드: OFF</button>
 
       <p class="best-score" id="title-best-label"></p>
-      <button id="btn-version" class="version-tag-btn">v3.7 업데이트 내역</button>
+      <button id="btn-version" class="version-tag-btn">v4.5 업데이트 내역</button>
     </div>
 
     <!-- 캐릭터 선택 화면 -->
@@ -96,6 +111,7 @@
       </div>
 
       <button id="btn-start" class="btn-primary" disabled>캐릭터를 선택하세요</button>
+      <button id="btn-practice-start" class="btn-secondary" disabled>🎯 연습 모드로 시작 (장애물 없음)</button>
       <button id="btn-back-title-1" class="btn-secondary">뒤로</button>
     </div>
 
@@ -119,6 +135,8 @@
         <p><strong>캐릭터마다 조금씩 달라요</strong><br>한민은 균형 잡힌 기본형, 헨리는 더 가볍게 통통 튀어오르고, 찰스는 처음부터 좀 더 빠르게 달리고, 메리는 내려올 때 더 사뿐해요. 점수나 거리 조건을 채우면 숨겨진 캐릭터 루이도 열려요.</p>
         <p><strong>초반엔 쉬워요</strong><br>시작하고 200m까지는 땅이나 하늘에서 짧게 튀어나온 파이프 하나만 있어요. 그것만 살짝 피하면 돼요. 200m를 넘기면 그때부터 양쪽 파이프 사이 틈을 지나가는 진짜 난이도가 시작돼요.</p>
         <p><strong>일시정지</strong> — 플레이 중 화면 오른쪽 위 ⏸️ 버튼으로 언제든 멈출 수 있어요.</p>
+        <p><strong>스트릭 콤보</strong> — 방패나 하트의 도움 없이 연속으로 파이프를 통과할수록 점수 배율이 x2, x3, x4까지 붙어요. 도움을 받으면 배율이 초기화돼요.</p>
+        <p><strong>체크포인트 모드</strong> — 타이틀 화면에서 켜두면, 죽었을 때 처음부터가 아니라 마지막으로 지난 200m 지점부터 이어할 수 있어요.</p>
         <p><strong>목표</strong> — 최대한 멀리, 최대한 오래 살아남아 점수·거리·업적·랭킹을 모두 채워보세요.</p>
       </div>
       <button id="btn-back-title-2" class="btn-primary">뒤로</button>
@@ -153,6 +171,29 @@
     <div id="screen-changelog" class="screen hidden">
       <h2 class="section-title">업데이트 내역</h2>
       <div class="modal-text">
+        <p><strong>v4.5</strong><br>
+        - <strong>진행상황 백업/복원</strong>: 설정 화면에서 기록을 파일로 저장하고 다른
+        기기에서 불러올 수 있어요<br>
+        - <strong>고대비 모드</strong>: 타이틀에서 켜면 파이프에 진한 테두리가 생겨서
+        더 잘 보여요<br>
+        - <strong>연습 모드</strong>: 캐릭터 선택 화면에서 "연습 모드로 시작"을 누르면
+        장애물에 부딪혀도 안 죽어요. 조작감만 익히고 싶을 때 좋아요<br>
+        - <strong>주간 챌린지</strong> 추가! 일일 미션보다 조금 더 도전적인 목표가
+        매주 바뀌어요<br>
+        - 타이틀에 <strong>통계</strong> 화면 추가: 누적 플레이 횟수, 누적 이동거리,
+        가장 많이 쓴 캐릭터 등을 볼 수 있어요<br>
+        - <strong>고스트 리플레이</strong>: 최고 기록을 세우면 그 판이 저장되고, 다음
+        판부터 반투명 고스트가 같이 나와서 그때의 나와 경쟁할 수 있어요<br>
+        - 신기록을 세우면 팡파레 효과음 + 반짝이는 이펙트 + 캐릭터 대사가 떠요</p>
+        <p><strong>v4.0</strong><br>
+        - 첫 점프 전에 "👆 탭해서 점프!" 튜토리얼 힌트가 살짝 떠요 (탭하면 사라져요)<br>
+        - 도움 없이 연속으로 파이프를 통과하면 점수 배율이 x2, x3, x4까지 붙는
+        <strong>스트릭 콤보</strong>가 생겼어요 (방패/하트로 목숨을 구하면 리셋돼요)<br>
+        - <strong>체크포인트 모드</strong> 추가! 타이틀에서 켜두면, 죽었을 때 마지막으로
+        지난 200m 지점부터 바로 이어할 수 있어요 (선택사항)<br>
+        - 게임오버 화면에 <strong>🔗 링크로 공유</strong> 버튼 추가. 내 점수/거리가 담긴
+        링크를 복사해서 친구한테 보내면, 친구 화면 타이틀에 도전장이 떠요<br>
+        - <strong>설정</strong> 화면 추가: 배경음악/효과음 볼륨을 따로 조절할 수 있어요</p>
         <p><strong>v3.7</strong><br>
         - 시작하고 200m까지는 훨씬 쉬워졌어욤! 양쪽 파이프 사이 틈을 노리는 대신,
         땅이나 하늘에서 짧게 튀어나온 파이프 하나만 살짝 피하면 돼욤<br>
@@ -203,6 +244,38 @@
       <button id="btn-back-title-6" class="btn-primary">뒤로</button>
     </div>
 
+    <!-- 설정 -->
+    <div id="screen-settings" class="screen hidden">
+      <h2 class="section-title">설정</h2>
+      <div class="settings-block">
+        <label class="settings-label" for="bgm-volume-slider">🎵 배경음악 볼륨 <span id="bgm-volume-value">70%</span></label>
+        <input type="range" id="bgm-volume-slider" min="0" max="100" value="70">
+
+        <label class="settings-label" for="sfx-volume-slider">🔊 효과음 볼륨 <span id="sfx-volume-value">100%</span></label>
+        <input type="range" id="sfx-volume-slider" min="0" max="100" value="100">
+      </div>
+
+      <div class="settings-block">
+        <label class="settings-label" style="margin-top:0;">💾 진행상황 백업</label>
+        <p class="settings-desc">최고 기록·업적·랭킹 등은 이 브라우저에만 저장돼요. 파일로 저장해두면 다른 기기나 브라우저에서도 불러올 수 있어요.</p>
+        <div class="settings-btn-row">
+          <button id="btn-export-data" class="btn-tertiary-solid">📥 파일로 저장</button>
+          <button id="btn-import-data" class="btn-tertiary-solid">📤 불러오기</button>
+        </div>
+        <input type="file" id="import-file-input" accept="application/json" class="hidden">
+        <p class="name-entry-saved hidden" id="backup-status"></p>
+      </div>
+
+      <button id="btn-back-title-7" class="btn-primary">뒤로</button>
+    </div>
+
+    <!-- 통계 -->
+    <div id="screen-stats" class="screen hidden">
+      <h2 class="section-title">전체 통계</h2>
+      <div class="modal-text" id="stats-list"></div>
+      <button id="btn-back-title-8" class="btn-primary">뒤로</button>
+    </div>
+
     <!-- 일시정지 화면 -->
     <div id="screen-paused" class="screen hidden">
       <h1 class="title" style="font-size:34px;">일시정지</h1>
@@ -214,9 +287,11 @@
     <div id="screen-over" class="screen hidden">
       <h1 class="the-end">THE END</h1>
       <div id="new-record-badge"></div>
+      <p class="new-record-quote hidden" id="new-record-quote"></p>
       <p class="score-line">점수 <span id="final-score">0</span> · 최고 <span id="best-score">0</span></p>
       <p class="score-line small">이동 거리 <span id="final-distance">0</span>m · 최고 <span id="best-distance">0</span>m</p>
       <p class="score-line small">무적 콤보 <span id="final-combo">0</span> · 최고 <span id="best-combo">0</span></p>
+      <p class="score-line small">스트릭 배율 최고 <span id="final-streak">x1</span></p>
       <div id="new-achievements"></div>
       <div id="daily-result"></div>
 
@@ -229,8 +304,11 @@
         <p class="name-entry-saved hidden" id="name-entry-saved">저장했어요!</p>
       </div>
 
+      <button id="btn-continue-checkpoint" class="btn-primary hidden">🚩 체크포인트에서 이어하기</button>
       <button id="btn-retry" class="btn-primary">다시하기</button>
       <button id="btn-save-image" class="btn-secondary">📸 결과 이미지 저장</button>
+      <button id="btn-share-link" class="btn-secondary">🔗 링크로 공유</button>
+      <p class="name-entry-saved hidden" id="share-link-saved">링크를 복사했어요!</p>
       <button id="btn-change-char" class="btn-secondary">캐릭터 변경</button>
     </div>
 
@@ -238,8 +316,10 @@
     <div id="hud" class="hidden">
       <span id="score">0</span>
       <span id="distance">0 m</span>
+      <span id="streak-badge"></span>
       <div id="effects-status"></div>
     </div>
+
 
   </div>
 
