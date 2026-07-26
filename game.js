@@ -1,5 +1,5 @@
 // ========================================================
-// Tappy Friends v3.6
+// Tappy Friends v3.7
 // 탭/클릭으로 점프하며 파이프를 피하는 캐주얼 게임
 // ========================================================
 
@@ -19,6 +19,12 @@ const MIN_PIPE_SPACING   = 180;
 const DIFFICULTY_RAMP_SCORE = 22;
 const BASE_SPEED   = 2.6;
 const MOVING_PIPE_SCORE_START = 8; // 이 점수부터 움직이는 파이프 등장
+
+// 초반 이지모드 (거리 기준)
+const EASY_MODE_DISTANCE  = 200;  // 이 거리(m)까지는 쉬운 외짝 파이프만 등장
+const EASY_PIPE_HEIGHT_MIN = 55;  // 외짝 파이프 최소 길이
+const EASY_PIPE_HEIGHT_MAX = 120; // 외짝 파이프 최대 길이
+const EASY_PIPE_SPACING    = 275; // 이지모드 파이프 간격 (여유있게)
 
 const GROUND_HEIGHT = 90;
 const CHAR_RADIUS   = 20;
@@ -915,7 +921,57 @@ function currentPipeSpacing() {
 // ========================================================
 // 파이프 (장애물) + 아이템
 // ========================================================
-function spawnPipe(xStart) {
+function isEasyPhase() {
+  return distanceM < EASY_MODE_DISTANCE;
+}
+
+function maybeSpawnItem(xStart, itemY) {
+  if (Math.random() < ITEM_SPAWN_CHANCE) {
+    const type = ITEM_WEIGHTED_POOL[Math.floor(Math.random() * ITEM_WEIGHTED_POOL.length)];
+    items.push({
+      x: xStart + PIPE_WIDTH / 2,
+      y: itemY,
+      type,
+      collected: false,
+      bobPhase: Math.random() * Math.PI * 2
+    });
+  }
+}
+
+function spawnEasyPipe(xStart) {
+  const groundY = LOGICAL_H - GROUND_HEIGHT;
+  const height = EASY_PIPE_HEIGHT_MIN + Math.random() * (EASY_PIPE_HEIGHT_MAX - EASY_PIPE_HEIGHT_MIN);
+  const fromTop = Math.random() < 0.5; // 절반은 천장에서, 절반은 땅에서 튀어나옴
+
+  let topHeight = 0;
+  let bottomY = groundY;
+  let itemY;
+
+  if (fromTop) {
+    topHeight = height;
+    itemY = topHeight + (groundY - topHeight) / 2;
+  } else {
+    bottomY = groundY - height;
+    itemY = bottomY / 2;
+  }
+
+  pipes.push({
+    x: xStart,
+    topHeight,
+    bottomY,
+    gap: bottomY - topHeight,
+    passed: false,
+    moving: false,
+    baseTop: topHeight,
+    oscAmp: 0, oscSpeed: 0, oscPhase: 0,
+    hasTop: fromTop,
+    hasBottom: !fromTop
+  });
+
+  maybeSpawnItem(xStart, itemY);
+}
+
+function spawnNormalPipe(xStart) {
   const gap = currentPipeGap();
   const margin = 60;
   const minTop = margin;
@@ -925,7 +981,7 @@ function spawnPipe(xStart) {
   const movingChance = Math.min(0.45, Math.max(0, (score - MOVING_PIPE_SCORE_START) * 0.025));
   const isMoving = score >= MOVING_PIPE_SCORE_START && Math.random() < movingChance;
 
-  const pipe = {
+  pipes.push({
     x: xStart,
     topHeight,
     bottomY: topHeight + gap,
@@ -935,20 +991,24 @@ function spawnPipe(xStart) {
     baseTop: topHeight,
     oscAmp: 16 + Math.random() * 22,
     oscSpeed: 0.02 + Math.random() * 0.02,
-    oscPhase: Math.random() * Math.PI * 2
-  };
-  pipes.push(pipe);
+    oscPhase: Math.random() * Math.PI * 2,
+    hasTop: true,
+    hasBottom: true
+  });
 
-  if (Math.random() < ITEM_SPAWN_CHANCE) {
-    const type = ITEM_WEIGHTED_POOL[Math.floor(Math.random() * ITEM_WEIGHTED_POOL.length)];
-    items.push({
-      x: xStart + PIPE_WIDTH / 2,
-      y: topHeight + gap / 2,
-      type,
-      collected: false,
-      bobPhase: Math.random() * Math.PI * 2
-    });
+  maybeSpawnItem(xStart, topHeight + gap / 2);
+}
+
+function spawnPipe(xStart) {
+  if (isEasyPhase()) {
+    spawnEasyPipe(xStart);
+  } else {
+    spawnNormalPipe(xStart);
   }
+}
+
+function nextPipeSpacing() {
+  return isEasyPhase() ? EASY_PIPE_SPACING : currentPipeSpacing();
 }
 
 function resetPipes() {
@@ -957,14 +1017,14 @@ function resetPipes() {
   let x = LOGICAL_W + 80;
   for (let i = 0; i < 4; i++) {
     spawnPipe(x);
-    x += currentPipeSpacing();
+    x += nextPipeSpacing();
   }
 }
 
 function drawPipe(p) {
   const groundY = LOGICAL_H - GROUND_HEIGHT;
-  drawPipeSegment(p.x, 0, PIPE_WIDTH, p.topHeight, true);
-  drawPipeSegment(p.x, p.bottomY, PIPE_WIDTH, groundY - p.bottomY, false);
+  if (p.hasTop) drawPipeSegment(p.x, 0, PIPE_WIDTH, p.topHeight, true);
+  if (p.hasBottom) drawPipeSegment(p.x, p.bottomY, PIPE_WIDTH, groundY - p.bottomY, false);
 }
 
 function drawPipeSegment(x, y, w, h, isTop) {
@@ -1160,9 +1220,8 @@ function checkPipeCollision() {
     if (cx2 > px1 && cx1 < px2) {
       const cy1 = player.y - r * 0.7;
       const cy2 = player.y + r * 0.7;
-      if (cy1 < p.topHeight || cy2 > p.bottomY) {
-        return true;
-      }
+      if (p.hasTop && cy1 < p.topHeight) return true;
+      if (p.hasBottom && cy2 > p.bottomY) return true;
     }
   }
   return false;
@@ -1504,7 +1563,7 @@ function update() {
     if (pipes.length && pipes[0].x + PIPE_WIDTH < -20) {
       pipes.shift();
       const lastX = pipes[pipes.length - 1].x;
-      spawnPipe(lastX + currentPipeSpacing());
+      spawnPipe(lastX + nextPipeSpacing());
     }
     items = items.filter(it => it.x > -40 && !it.collected);
 
