@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>탭탭 프렌즈 - Tap Tap Friends</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Jua&family=Gaegu:wght@400;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <div id="game-wrap">
+
+    <canvas id="game-canvas" width="360" height="640"></canvas>
+
+    <!-- 메인 타이틀 화면 -->
+    <div id="screen-title" class="screen">
+      <h1 class="title">탭탭 프렌즈</h1>
+      <p class="subtitle">탭 한 번, 파이프 하나, 그리고 생존</p>
+
+      <div id="title-menu">
+        <button id="btn-goto-select" class="btn-primary btn-wide">게임 시작</button>
+        <button id="btn-goto-howto" class="btn-secondary btn-wide">플레이 방법</button>
+        <button id="btn-goto-credits" class="btn-secondary btn-wide">제작자</button>
+      </div>
+
+      <p class="best-score" id="title-best-label"></p>
+    </div>
+
+    <!-- 캐릭터 선택 화면 -->
+    <div id="screen-select" class="screen hidden">
+      <h2 class="section-title">캐릭터를 골라주세요</h2>
+
+      <div id="char-grid">
+        <button class="char-card" data-char="hanmin">
+          <canvas class="char-preview" width="90" height="90"></canvas>
+          <span class="char-name">한민</span>
+          <span class="char-desc">수달</span>
+        </button>
+        <button class="char-card" data-char="henry">
+          <canvas class="char-preview" width="90" height="90"></canvas>
+          <span class="char-name">헨리</span>
+          <span class="char-desc">치와와</span>
+        </button>
+        <button class="char-card" data-char="charles">
+          <canvas class="char-preview" width="90" height="90"></canvas>
+          <span class="char-name">찰스</span>
+          <span class="char-desc">햄스터</span>
+        </button>
+        <button class="char-card" data-char="mary">
+          <canvas class="char-preview" width="90" height="90"></canvas>
+          <span class="char-name">메리</span>
+          <span class="char-desc">햄스터</span>
+        </button>
+      </div>
+
+      <button id="btn-start" class="btn-primary" disabled>캐릭터를 선택하세요</button>
+      <button id="btn-back-title-1" class="btn-secondary">뒤로</button>
+    </div>
+
+    <!-- 플레이 방법 -->
+    <div id="screen-howto" class="screen hidden">
+      <h2 class="section-title">플레이 방법</h2>
+      <div class="modal-text">
+        <p><strong>기본 조작</strong><br>화면을 탭(또는 클릭, 스페이스바)하면 캐릭터가 위로 점프해요. 아무것도 안 하면 중력 때문에 계속 아래로 떨어지니, 초록 파이프 사이 틈을 잘 보고 타이밍을 맞춰 지나가세요.</p>
+        <p><strong>🍖 고기</strong> — 먹으면 잠깐 동안 이동 속도가 확 빨라져요. 스릴은 UP, 반응 시간은 DOWN!</p>
+        <p><strong>🍪 간식</strong> — 먹으면 잠깐 동안 무적이 돼요. 이 시간 동안은 파이프에 부딪혀도 그대로 통과해서 지나갈 수 있어요.</p>
+        <p><strong>💧 물</strong> — 마시면 조작감이 비행기처럼 부드러워져요. 탭을 계속 누르고 있으면 살짝 떠오르고, 손을 떼면 스르륵 내려와요. 무적은 아니니 파이프는 여전히 조심!</p>
+        <p><strong>목표</strong> — 최대한 멀리, 최대한 오래 살아남아 높은 점수와 이동 거리(m)를 기록해보세요.</p>
+      </div>
+      <button id="btn-back-title-2" class="btn-primary">뒤로</button>
+    </div>
+
+    <!-- 제작자 -->
+    <div id="screen-credits" class="screen hidden">
+      <h2 class="section-title">제작자</h2>
+      <div class="modal-text">
+        <p><strong>만든 사람</strong><br>최한민 (GitHub: ChoeHanMin)</p>
+        <p>탭탭 프렌즈는 심심할 때 즐기려고 만든 작은 캐주얼 게임이에요. 게임 속 네 친구, 한민(수달) · 헨리(치와와) · 찰스 · 메리(햄스터)와 함께 파이프 사이를 뚫고 최대한 멀리 날아가보세요.</p>
+        <p>버그를 발견했거나 아이디어가 있다면 GitHub 저장소에 이슈로 남겨주세요. 플레이해주셔서 감사합니다 🙌</p>
+      </div>
+      <button id="btn-back-title-3" class="btn-primary">뒤로</button>
+    </div>
+
+    <!-- 게임 오버 화면 -->
+    <div id="screen-over" class="screen hidden">
+      <h1 class="the-end">THE END</h1>
+      <p class="score-line">점수 <span id="final-score">0</span> · 최고 <span id="best-score">0</span></p>
+      <p class="score-line small">이동 거리 <span id="final-distance">0</span>m · 최고 <span id="best-distance">0</span>m</p>
+      <button id="btn-retry" class="btn-primary">다시하기</button>
+      <button id="btn-change-char" class="btn-secondary">캐릭터 변경</button>
+    </div>
+
+    <!-- 게임 중 상단 표시 -->
+    <div id="hud" class="hidden">
+      <span id="score">0</span>
+      <span id="distance">0 m</span>
+      <div id="effects-status"></div>
+    </div>
+
+  </div>
+
+  <script src="game.js"></script>
+</body>
+</html>
