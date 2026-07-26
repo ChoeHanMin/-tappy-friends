@@ -1,5 +1,5 @@
 // ========================================================
-// Tappy Friends v3.0
+// Tappy Friends v3.5
 // 탭/클릭으로 점프하며 파이프를 피하는 캐주얼 게임
 // ========================================================
 
@@ -36,11 +36,43 @@ const FLY_LIFT    = -0.5;
 const FLY_MIN_VY  = -4.2;
 const FLY_MAX_VY  = 4.6;
 
+// 신규 아이템 지속시간(프레임)/수치
+const SHIELD_DURATION    = 480; // 부딪히지 않으면 8초 후 소멸
+const HEART_DURATION     = 600; // 10초 안에 안 쓰면 소멸
+const CANDY_DURATION     = 300;
+const CANDY_SHRINK       = 0.62; // 충돌 판정 반지름 배율
+const MAGNET_DURATION    = 300;
+const MAGNET_RANGE       = 150;
+const MAGNET_PULL        = 0.08;
+const BALLOON_DURATION   = 300;
+const STAR_DURATION      = 300;
+const ICECREAM_DURATION  = 300;
+const HOURGLASS_DURATION = 240;
+const HOURGLASS_SCALE    = 0.55; // 슬로모션 배율
+
 const ITEM_TYPES = {
-  meat:  { emoji: '🍖', label: '고기',  color: '#ffb08a' },
-  snack: { emoji: '🍪', label: '간식',  color: '#ffd873' },
-  water: { emoji: '💧', label: '물',    color: '#7fd1ff' }
+  meat:     { emoji: '🍖', label: '고기',      color: '#ffb08a' },
+  snack:    { emoji: '🍪', label: '간식',      color: '#ffd873' },
+  water:    { emoji: '💧', label: '물',        color: '#7fd1ff' },
+  shield:   { emoji: '🛡️', label: '방패',      color: '#9fd6ff' },
+  heart:    { emoji: '❤️', label: '하트',      color: '#ff6b81' },
+  candy:    { emoji: '🍬', label: '사탕',      color: '#ff9ecf' },
+  magnet:   { emoji: '🧲', label: '자석껌',    color: '#c58bff' },
+  balloon:  { emoji: '🎈', label: '풍선껌',    color: '#ff8fb3' },
+  star:     { emoji: '⭐', label: '별사탕',    color: '#ffe066' },
+  iceCream: { emoji: '🧊', label: '얼음과자',  color: '#a0e9ff' },
+  hourglass:{ emoji: '⏰', label: '모래시계',  color: '#d9c38a' },
+  mystery:  { emoji: '🎁', label: '미스터리',  color: '#c9c9c9' }
 };
+
+// 아이템 등장 가중치 (숫자가 클수록 자주 나옴)
+const ITEM_WEIGHTS = {
+  meat: 3, snack: 3, water: 3, candy: 3,
+  shield: 2, magnet: 2, balloon: 2, star: 2, iceCream: 2, hourglass: 2,
+  heart: 1, mystery: 1
+};
+const ITEM_WEIGHTED_POOL = Object.entries(ITEM_WEIGHTS)
+  .flatMap(([type, w]) => Array(w).fill(type));
 
 // 저장 키
 const STORAGE_KEY_SCORE    = 'tapTapFriends_bestScore';
@@ -228,6 +260,14 @@ let isPointerDown = false;
 let speedTimer = 0;
 let invincibleTimer = 0;
 let flyTimer = 0;
+let shieldTimer = 0;
+let heartTimer = 0;
+let candyTimer = 0;
+let magnetTimer = 0;
+let balloonTimer = 0;
+let starTimer = 0;
+let iceCreamTimer = 0;
+let hourglassTimer = 0;
 
 let comboCurrent = 0;
 let runMaxCombo = 0;
@@ -440,6 +480,26 @@ function playItem(type) {
   if (type === 'meat') { beep(700, 0.08, 'square', 0.15); beep(900, 0.1, 'square', 0.15, 0.07); }
   else if (type === 'snack') { beep(900, 0.07, 'sine', 0.15); beep(1200, 0.07, 'sine', 0.15, 0.06); beep(1500, 0.1, 'sine', 0.15, 0.12); }
   else if (type === 'water') { beep(600, 0.08, 'sine', 0.13); beep(450, 0.12, 'sine', 0.13, 0.07); }
+  else if (type === 'shield') { beep(500, 0.1, 'square', 0.14); beep(750, 0.12, 'square', 0.14, 0.06); }
+  else if (type === 'heart') { beep(784, 0.09, 'sine', 0.16); beep(988, 0.09, 'sine', 0.16, 0.08); beep(1175, 0.14, 'sine', 0.16, 0.16); }
+  else if (type === 'candy') { beep(1000, 0.05, 'triangle', 0.12); beep(1300, 0.06, 'triangle', 0.12, 0.05); }
+  else if (type === 'magnet') { beep(300, 0.1, 'sawtooth', 0.12); beep(600, 0.1, 'sawtooth', 0.12, 0.06); }
+  else if (type === 'balloon') { beep(500, 0.1, 'sine', 0.13); beep(700, 0.1, 'sine', 0.13, 0.06); beep(900, 0.12, 'sine', 0.13, 0.12); }
+  else if (type === 'star') { beep(1046, 0.06, 'square', 0.14); beep(1318, 0.06, 'square', 0.14, 0.05); beep(1568, 0.1, 'square', 0.14, 0.1); }
+  else if (type === 'iceCream') { beep(1200, 0.1, 'sine', 0.12); beep(900, 0.14, 'sine', 0.12, 0.08); }
+  else if (type === 'hourglass') { beep(400, 0.2, 'sine', 0.12); beep(350, 0.24, 'sine', 0.12, 0.1); }
+  else if (type === 'mystery') { beep(500, 0.05, 'square', 0.1); beep(700, 0.05, 'square', 0.1, 0.05); beep(900, 0.05, 'square', 0.1, 0.1); }
+}
+
+function playShieldBreak() {
+  beep(300, 0.1, 'square', 0.16);
+  beep(180, 0.16, 'square', 0.14, 0.05);
+}
+
+function playRevive() {
+  beep(523, 0.1, 'sine', 0.16);
+  beep(659, 0.1, 'sine', 0.16, 0.08);
+  beep(784, 0.16, 'sine', 0.16, 0.16);
 }
 
 function playScorePoint() {
@@ -880,8 +940,7 @@ function spawnPipe(xStart) {
   pipes.push(pipe);
 
   if (Math.random() < ITEM_SPAWN_CHANCE) {
-    const types = Object.keys(ITEM_TYPES);
-    const type = types[Math.floor(Math.random() * types.length)];
+    const type = ITEM_WEIGHTED_POOL[Math.floor(Math.random() * ITEM_WEIGHTED_POOL.length)];
     items.push({
       x: xStart + PIPE_WIDTH / 2,
       y: topHeight + gap / 2,
@@ -910,10 +969,11 @@ function drawPipe(p) {
 
 function drawPipeSegment(x, y, w, h, isTop) {
   const capH = 22;
-  const cMain = winterEnabled ? '#bfe4f7' : '#4fb85f';
-  const cSide = winterEnabled ? '#9ccbe6' : '#3a9b4a';
-  const cCap = winterEnabled ? '#8fbcd9' : '#2f8f42';
-  const cCapTop = winterEnabled ? '#a9d3ec' : '#3ea850';
+  const frosty = winterEnabled || iceCreamTimer > 0;
+  const cMain = frosty ? '#bfe4f7' : '#4fb85f';
+  const cSide = frosty ? '#9ccbe6' : '#3a9b4a';
+  const cCap = frosty ? '#8fbcd9' : '#2f8f42';
+  const cCapTop = frosty ? '#a9d3ec' : '#3ea850';
 
   ctx.fillStyle = cMain;
   ctx.fillRect(x, y, w, h);
@@ -1021,7 +1081,7 @@ function drawPopups() {
 // ========================================================
 // 이펙트 / 상태 표시
 // ========================================================
-function collectItem(type) {
+function applyItemEffect(type) {
   if (type === 'meat') {
     speedTimer = SPEED_DURATION;
   } else if (type === 'snack') {
@@ -1029,9 +1089,33 @@ function collectItem(type) {
     usedInvincibleRun = true;
   } else if (type === 'water') {
     flyTimer = FLY_DURATION;
+  } else if (type === 'shield') {
+    shieldTimer = SHIELD_DURATION;
+  } else if (type === 'heart') {
+    heartTimer = HEART_DURATION;
+  } else if (type === 'candy') {
+    candyTimer = CANDY_DURATION;
+  } else if (type === 'magnet') {
+    magnetTimer = MAGNET_DURATION;
+  } else if (type === 'balloon') {
+    balloonTimer = BALLOON_DURATION;
+  } else if (type === 'star') {
+    starTimer = STAR_DURATION;
+  } else if (type === 'iceCream') {
+    iceCreamTimer = ICECREAM_DURATION;
+  } else if (type === 'hourglass') {
+    hourglassTimer = HOURGLASS_DURATION;
+  } else if (type === 'mystery') {
+    const pool = ITEM_WEIGHTED_POOL.filter((t) => t !== 'mystery');
+    const picked = pool[Math.floor(Math.random() * pool.length)];
+    applyItemEffect(picked);
   }
-  itemsCollectedRun++;
   playItem(type);
+}
+
+function collectItem(type) {
+  itemsCollectedRun++;
+  applyItemEffect(type);
 }
 
 function updateEffectsHud() {
@@ -1039,29 +1123,43 @@ function updateEffectsHud() {
   if (speedTimer > 0) badges.push(`🍖 x${SPEED_MULTIPLIER.toFixed(1)} ${Math.ceil(speedTimer / 60)}s`);
   if (invincibleTimer > 0) badges.push(`🍪 무적 ${Math.ceil(invincibleTimer / 60)}s`);
   if (flyTimer > 0) badges.push(`💧 비행 ${Math.ceil(flyTimer / 60)}s`);
+  if (shieldTimer > 0) badges.push(`🛡️ 방패 ${Math.ceil(shieldTimer / 60)}s`);
+  if (heartTimer > 0) badges.push(`❤️ 여벌목숨 ${Math.ceil(heartTimer / 60)}s`);
+  if (candyTimer > 0) badges.push(`🍬 축소 ${Math.ceil(candyTimer / 60)}s`);
+  if (magnetTimer > 0) badges.push(`🧲 자석 ${Math.ceil(magnetTimer / 60)}s`);
+  if (balloonTimer > 0) badges.push(`🎈 자동비행 ${Math.ceil(balloonTimer / 60)}s`);
+  if (starTimer > 0) badges.push(`⭐ 점수 x2 ${Math.ceil(starTimer / 60)}s`);
+  if (iceCreamTimer > 0) badges.push(`🧊 파이프 정지 ${Math.ceil(iceCreamTimer / 60)}s`);
+  if (hourglassTimer > 0) badges.push(`⏰ 슬로모션 ${Math.ceil(hourglassTimer / 60)}s`);
   effectsStatusEl.innerHTML = badges.map(b => `<span class="effect-badge">${b}</span>`).join('');
 }
 
 // ========================================================
 // 충돌 판정
 // ========================================================
+function getEffectiveCharRadius() {
+  return CHAR_RADIUS * (candyTimer > 0 ? CANDY_SHRINK : 1);
+}
+
 function checkGroundCeilingCollision() {
+  const r = getEffectiveCharRadius();
   const groundY = LOGICAL_H - GROUND_HEIGHT;
-  if (player.y + CHAR_RADIUS * 0.75 >= groundY) return true;
-  if (player.y - CHAR_RADIUS * 0.75 <= 0) return true;
+  if (player.y + r * 0.75 >= groundY) return true;
+  if (player.y - r * 0.75 <= 0) return true;
   return false;
 }
 
 function checkPipeCollision() {
+  const r = getEffectiveCharRadius();
   for (const p of pipes) {
     const px1 = p.x;
     const px2 = p.x + PIPE_WIDTH;
-    const cx1 = player.x - CHAR_RADIUS * 0.7;
-    const cx2 = player.x + CHAR_RADIUS * 0.7;
+    const cx1 = player.x - r * 0.7;
+    const cx2 = player.x + r * 0.7;
 
     if (cx2 > px1 && cx1 < px2) {
-      const cy1 = player.y - CHAR_RADIUS * 0.7;
-      const cy2 = player.y + CHAR_RADIUS * 0.7;
+      const cy1 = player.y - r * 0.7;
+      const cy2 = player.y + r * 0.7;
       if (cy1 < p.topHeight || cy2 > p.bottomY) {
         return true;
       }
@@ -1079,6 +1177,20 @@ function checkItemCollisions() {
     if (dist < CHAR_RADIUS * 0.85 + ITEM_RADIUS * 0.7) {
       it.collected = true;
       collectItem(it.type);
+    }
+  });
+}
+
+function applyMagnetPull() {
+  if (magnetTimer <= 0) return;
+  items.forEach(it => {
+    if (it.collected) return;
+    const dx = player.x - it.x;
+    const dy = player.y - it.y;
+    const dist = Math.hypot(dx, dy);
+    if (dist < MAGNET_RANGE) {
+      it.x += dx * MAGNET_PULL;
+      it.y += dy * MAGNET_PULL;
     }
   });
 }
@@ -1160,6 +1272,14 @@ function goToCountdown() {
   speedTimer = 0;
   invincibleTimer = 0;
   flyTimer = 0;
+  shieldTimer = 0;
+  heartTimer = 0;
+  candyTimer = 0;
+  magnetTimer = 0;
+  balloonTimer = 0;
+  starTimer = 0;
+  iceCreamTimer = 0;
+  hourglassTimer = 0;
   comboCurrent = 0;
   runMaxCombo = 0;
   itemsCollectedRun = 0;
@@ -1195,6 +1315,23 @@ function beginDying() {
   stopBgm();
   playCollision();
   vibrate(200);
+}
+
+function bounceOffShield() {
+  player.vy = JUMP_VELOCITY * 0.7;
+  invincibleTimer = Math.max(invincibleTimer, 15);
+  spawnParticles(player.x, player.y, '#9fd6ff', 16);
+  playShieldBreak();
+  vibrate(60);
+}
+
+function reviveWithHeart() {
+  player.y = Math.max(60, player.y - 24);
+  player.vy = -6;
+  invincibleTimer = Math.max(invincibleTimer, 90);
+  spawnParticles(player.x, player.y, '#ff6b81', 20);
+  playRevive();
+  vibrate([40, 40, 40]);
 }
 
 function gameOver() {
@@ -1312,30 +1449,47 @@ function update() {
     if (speedTimer > 0) speedTimer--;
     if (invincibleTimer > 0) invincibleTimer--;
     if (flyTimer > 0) flyTimer--;
+    if (shieldTimer > 0) shieldTimer--;
+    if (heartTimer > 0) heartTimer--;
+    if (candyTimer > 0) candyTimer--;
+    if (magnetTimer > 0) magnetTimer--;
+    if (balloonTimer > 0) balloonTimer--;
+    if (starTimer > 0) starTimer--;
+    if (iceCreamTimer > 0) iceCreamTimer--;
+    if (hourglassTimer > 0) hourglassTimer--;
 
-    const currentSpeed = speed * (speedTimer > 0 ? SPEED_MULTIPLIER : 1);
+    const timeScale = hourglassTimer > 0 ? HOURGLASS_SCALE : 1;
+
+    const currentSpeed = speed * (speedTimer > 0 ? SPEED_MULTIPLIER : 1) * timeScale;
     distanceM += currentSpeed / PIXELS_PER_METER;
     groundOffset -= currentSpeed;
 
-    if (flyTimer > 0) {
+    if (balloonTimer > 0) {
+      const nextPipe = pipes.find(p => p.x + PIPE_WIDTH > player.x);
+      const targetY = nextPipe ? (nextPipe.topHeight + nextPipe.gap / 2) : player.y;
+      player.y += (targetY - player.y) * 0.06;
+      player.vy = 0;
+      player.rot = Math.sin(frame * 0.1) * 0.15;
+    } else if (flyTimer > 0) {
       if (isPointerDown) {
-        player.vy += FLY_LIFT;
+        player.vy += FLY_LIFT * timeScale;
         if (player.vy < FLY_MIN_VY) player.vy = FLY_MIN_VY;
       } else {
-        player.vy += FLY_GRAVITY;
+        player.vy += FLY_GRAVITY * timeScale;
         if (player.vy > FLY_MAX_VY) player.vy = FLY_MAX_VY;
       }
       player.rot = Math.max(-0.35, Math.min(0.35, player.vy / 8));
+      player.y += player.vy;
     } else {
-      player.vy += GRAVITY * stats.gravityMult;
+      player.vy += GRAVITY * stats.gravityMult * timeScale;
       if (player.vy > MAX_FALL_SPEED) player.vy = MAX_FALL_SPEED;
       player.rot = Math.max(-0.5, Math.min(1.1, player.vy / 12));
+      player.y += player.vy;
     }
-    player.y += player.vy;
 
     pipes.forEach(p => {
       p.x -= currentSpeed;
-      if (p.moving) {
+      if (p.moving && iceCreamTimer <= 0) {
         p.topHeight = p.baseTop + Math.sin(frame * p.oscSpeed + p.oscPhase) * p.oscAmp;
         const minTop = 30;
         const maxTop = LOGICAL_H - GROUND_HEIGHT - 30 - p.gap;
@@ -1345,6 +1499,7 @@ function update() {
       }
     });
     items.forEach(it => { it.x -= currentSpeed; });
+    applyMagnetPull();
 
     if (pipes.length && pipes[0].x + PIPE_WIDTH < -20) {
       pipes.shift();
@@ -1356,7 +1511,7 @@ function update() {
     pipes.forEach(p => {
       if (!p.passed && p.x + PIPE_WIDTH < player.x - CHAR_RADIUS) {
         p.passed = true;
-        score++;
+        score += starTimer > 0 ? 2 : 1;
         scoreEl.textContent = score;
         speed = Math.min(BASE_SPEED * (stats.speedMult || 1) + score * 0.06, 5.6);
         playScorePoint();
@@ -1379,7 +1534,15 @@ function update() {
     const hitPipe = invincibleTimer > 0 ? false : checkPipeCollision();
 
     if (hitGroundOrCeiling || hitPipe) {
-      beginDying();
+      if (heartTimer > 0) {
+        heartTimer = 0;
+        reviveWithHeart();
+      } else if (hitPipe && !hitGroundOrCeiling && shieldTimer > 0) {
+        shieldTimer = 0;
+        bounceOffShield();
+      } else {
+        beginDying();
+      }
     }
   } else if (state === 'dying') {
     updatePopups();
@@ -1429,6 +1592,17 @@ function drawEffectAura() {
     ctx.stroke();
     ctx.restore();
   }
+  if (shieldTimer > 0) {
+    ctx.save();
+    ctx.translate(player.x, player.y);
+    const pulse = 1 + Math.sin(frame * 0.25) * 0.06;
+    ctx.beginPath();
+    ctx.arc(0, 0, (CHAR_RADIUS + 6) * pulse, 0, Math.PI * 2);
+    ctx.strokeStyle = 'rgba(130,200,255,0.9)';
+    ctx.lineWidth = 3;
+    ctx.stroke();
+    ctx.restore();
+  }
   if (speedTimer > 0) {
     ctx.save();
     ctx.strokeStyle = 'rgba(255,255,255,0.6)';
@@ -1454,6 +1628,49 @@ function drawEffectAura() {
     }
     ctx.restore();
   }
+  if (starTimer > 0) {
+    ctx.save();
+    ctx.fillStyle = 'rgba(255,224,102,0.85)';
+    for (let i = 0; i < 4; i++) {
+      const ang = frame * 0.12 + i * (Math.PI / 2);
+      const sx = player.x + Math.cos(ang) * (CHAR_RADIUS + 12);
+      const sy = player.y + Math.sin(ang) * (CHAR_RADIUS + 12);
+      ctx.beginPath();
+      ctx.arc(sx, sy, 2.5, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.restore();
+  }
+  if (magnetTimer > 0) {
+    ctx.save();
+    ctx.strokeStyle = 'rgba(197,139,255,0.5)';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(player.x, player.y, MAGNET_RANGE * (0.85 + Math.sin(frame * 0.15) * 0.05), 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.restore();
+  }
+}
+
+function drawEffectIcons() {
+  const icons = [];
+  if (heartTimer > 0) icons.push('❤️');
+  if (candyTimer > 0) icons.push('🍬');
+  if (balloonTimer > 0) icons.push('🎈');
+  if (iceCreamTimer > 0) icons.push('🧊');
+  if (hourglassTimer > 0) icons.push('⏰');
+  if (!icons.length) return;
+
+  ctx.save();
+  ctx.font = "16px 'Segoe UI Emoji','Apple Color Emoji','Noto Color Emoji',sans-serif";
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  icons.forEach((ic, i) => {
+    const bx = player.x + (i - (icons.length - 1) / 2) * 20;
+    const by = player.y - CHAR_RADIUS - 22 + Math.sin(frame * 0.15 + i) * 3;
+    ctx.fillText(ic, bx, by);
+  });
+  ctx.restore();
 }
 
 function drawGameOverOverlay() {
@@ -1486,7 +1703,9 @@ function render() {
   if (showWorld) {
     drawEffectAura();
     const bob = (state === 'countdown') ? 0 : Math.sin(frame * 0.25) * 3;
-    drawCharacter(ctx, selectedChar, player.x, player.y, CHAR_RADIUS, player.rot, bob);
+    const drawRadius = state === 'playing' ? getEffectiveCharRadius() : CHAR_RADIUS;
+    drawCharacter(ctx, selectedChar, player.x, player.y, drawRadius, player.rot, bob);
+    drawEffectIcons();
     drawParticles();
     drawPopups();
   }

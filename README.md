@@ -54,6 +54,15 @@ tappy-friends/
 | 🍖 | 고기 | 일정 시간 동안 이동 속도가 빨라집니다 |
 | 🍪 | 간식 | 일정 시간 동안 무적이 되어 파이프에 부딪혀도 통과합니다 |
 | 💧 | 물 | 일정 시간 동안 조작감이 비행기처럼 부드러워집니다(탭을 누르는 동안 상승, 떼면 서서히 하강). 무적은 아닙니다 |
+| 🛡️ | 방패 | 한 번 부딪혀도 죽지 않고 방패만 소모됩니다. 일정 시간 안 쓰면 자동 소멸 |
+| ❤️ | 하트 | 치명타를 입는 순간 자동으로 한 번 부활시켜줍니다. 일정 시간 안 쓰면 자동 소멸 |
+| 🍬 | 사탕 | 일정 시간 동안 충돌 판정 크기가 작아져 파이프 틈 통과가 쉬워집니다 |
+| 🧲 | 자석껌 | 일정 시간 동안 주변 아이템을 자동으로 끌어당깁니다 |
+| 🎈 | 풍선껌 | 일정 시간 동안 자동 조종 모드가 되어 알아서 파이프 틈으로 이동합니다 |
+| ⭐ | 별사탕 | 일정 시간 동안 파이프 통과 점수가 2배가 됩니다 |
+| 🧊 | 얼음과자 | 일정 시간 동안 움직이는 파이프가 멈춥니다 |
+| ⏰ | 모래시계 | 일정 시간 동안 전체 속도가 느려지는 슬로모션이 됩니다 |
+| 🎁 | 미스터리 | 위 효과 중 하나가 랜덤으로 발동됩니다 (하트만큼 희귀하게 등장) |
 
 ### 캐릭터별 차이
 
@@ -116,11 +125,18 @@ python3 -m http.server 8000
   조정하세요.
 - 아이템 확률/지속시간: `ITEM_SPAWN_CHANCE`, `SPEED_DURATION`, `INVINCIBLE_DURATION`,
   `FLY_DURATION`, `SPEED_MULTIPLIER` 값을 조정하세요.
+- 신규 아이템 9종 세부 수치: `SHIELD_DURATION`, `HEART_DURATION`, `CANDY_DURATION`/`CANDY_SHRINK`,
+  `MAGNET_DURATION`/`MAGNET_RANGE`/`MAGNET_PULL`, `BALLOON_DURATION`, `STAR_DURATION`,
+  `ICECREAM_DURATION`, `HOURGLASS_DURATION`/`HOURGLASS_SCALE` 값을 조정하세요.
+- 아이템 등장 확률(가중치): `ITEM_WEIGHTS` 객체의 숫자를 바꾸면 특정 아이템이 더 자주/드물게
+  나오게 할 수 있습니다 (하트·미스터리는 기본적으로 희귀하게 설정되어 있습니다).
 - 캐릭터 색상/능력치: `CHARACTERS` 객체의 색상 값과 `gravityMult`/`jumpMult`/`speedMult`를 바꾸면
   배색과 조작감이 달라집니다.
 - 루이/겨울테마 해금 조건: `isLeoUnlocked()`, `isWinterUnlocked()` 함수의 조건을 바꾸면 됩니다. (함수 이름은 `Leo`로 남아있지만 실제 캐릭터 이름은 루이입니다)
 - 업적/일일미션 추가: `ACHIEVEMENTS`, `DAILY_TEMPLATES` 배열에 항목을 추가하면 됩니다.
 - 새 캐릭터 추가: `CHARACTERS`에 항목을 추가하고, `index.html`의 `#char-grid`에 카드 버튼을
   추가한 뒤, `drawCharacter()`에 그리는 분기를 추가하면 됩니다.
+- 새 아이템 추가: `ITEM_TYPES`와 `ITEM_WEIGHTS`에 항목을 추가하고, `applyItemEffect()`에 효과
+  분기를 추가한 뒤 필요하면 `drawEffectAura()`/`drawEffectIcons()`에 시각 효과를 추가하면 됩니다.
 - 타이틀 화면의 `플레이 방법` / `제작자` 문구는 `index.html`의 `#screen-howto`, `#screen-credits`
   안의 텍스트를 직접 수정하면 됩니다.
