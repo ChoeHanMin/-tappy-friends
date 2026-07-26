@@ -12,8 +12,11 @@ const JUMP_VELOCITY  = -7.6;
 const MAX_FALL_SPEED = 9;
 
 const PIPE_WIDTH   = 54;
-const PIPE_GAP     = 158;
-const PIPE_SPACING = 190;      // 파이프 사이 간격(수평)
+const START_PIPE_GAP     = 220;  // 시작할 때 파이프 틈 (넉넉하게)
+const MIN_PIPE_GAP       = 148;  // 최소 틈 (이 밑으로는 안 좁아짐)
+const START_PIPE_SPACING = 260;  // 시작할 때 파이프-파이프 간격
+const MIN_PIPE_SPACING   = 180;  // 최소 간격
+const DIFFICULTY_RAMP_SCORE = 22; // 이 점수까지 서서히 어려워지고 이후 최대 난이도 유지
 const BASE_SPEED   = 2.6;
 
 const GROUND_HEIGHT = 90;
@@ -394,17 +397,31 @@ function drawGround() {
 }
 
 // ========================================================
+// 난이도 곡선: 점수가 오를수록 파이프 틈/간격이 점점 좁아짐
+// ========================================================
+function currentPipeGap() {
+  const t = Math.min(1, score / DIFFICULTY_RAMP_SCORE);
+  return START_PIPE_GAP - (START_PIPE_GAP - MIN_PIPE_GAP) * t;
+}
+
+function currentPipeSpacing() {
+  const t = Math.min(1, score / DIFFICULTY_RAMP_SCORE);
+  return START_PIPE_SPACING - (START_PIPE_SPACING - MIN_PIPE_SPACING) * t;
+}
+
+// ========================================================
 // 파이프 (장애물) + 아이템
 // ========================================================
 function spawnPipe(xStart) {
+  const gap = currentPipeGap();
   const margin = 60;
   const minTop = margin;
-  const maxTop = LOGICAL_H - GROUND_HEIGHT - margin - PIPE_GAP;
+  const maxTop = LOGICAL_H - GROUND_HEIGHT - margin - gap;
   const topHeight = minTop + Math.random() * Math.max(20, (maxTop - minTop));
   const pipe = {
     x: xStart,
     topHeight,
-    bottomY: topHeight + PIPE_GAP,
+    bottomY: topHeight + gap,
     passed: false
   };
   pipes.push(pipe);
@@ -414,7 +431,7 @@ function spawnPipe(xStart) {
     const type = types[Math.floor(Math.random() * types.length)];
     items.push({
       x: xStart + PIPE_WIDTH / 2,
-      y: topHeight + PIPE_GAP / 2,
+      y: topHeight + gap / 2,
       type,
       collected: false,
       bobPhase: Math.random() * Math.PI * 2
@@ -428,7 +445,7 @@ function resetPipes() {
   let x = LOGICAL_W + 80;
   for (let i = 0; i < 4; i++) {
     spawnPipe(x);
-    x += PIPE_SPACING;
+    x += currentPipeSpacing();
   }
 }
 
@@ -674,7 +691,7 @@ function update() {
     if (pipes.length && pipes[0].x + PIPE_WIDTH < -20) {
       pipes.shift();
       const lastX = pipes[pipes.length - 1].x;
-      spawnPipe(lastX + PIPE_SPACING);
+      spawnPipe(lastX + currentPipeSpacing());
     }
     items = items.filter(it => it.x > -40 && !it.collected);
 
